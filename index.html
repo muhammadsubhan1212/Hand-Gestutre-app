@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AirFrame - Gesture-Controlled Photo Studio</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- MediaPipe Hands -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    <!-- GIF.js for GIF export -->
+    <script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+</head>
+<body>
+    <!-- Main Container -->
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="logo">
+                <h1>✋ AirFrame</h1>
+                <p class="tagline">Hands-Free Photo Studio</p>
+            </div>
+            <div class="status-indicator">
+                <div class="gesture-status" id="gestureStatus">Ready for gestures</div>
+            </div>
+        </header>
+
+        <!-- Main Camera View -->
+        <main class="camera-section">
+            <!-- Camera Canvas Container -->
+            <div class="camera-container">
+                <!-- Video Element (hidden) -->
+                <video id="cameraVideo" autoplay playsinline></video>
+
+                <!-- Main Canvas for Display -->
+                <canvas id="mainCanvas"></canvas>
+
+                <!-- Overlay Canvas for Hand Tracking -->
+                <canvas id="overlayCanvas"></canvas>
+
+                <!-- Composition Guides -->
+                <div class="composition-guides" id="compositionGuides">
+                    <div class="rule-of-thirds">
+                        <div class="thirds-line thirds-vertical" style="left: 33.33%"></div>
+                        <div class="thirds-line thirds-vertical" style="left: 66.66%"></div>
+                        <div class="thirds-line thirds-horizontal" style="top: 33.33%"></div>
+                        <div class="thirds-line thirds-horizontal" style="top: 66.66%"></div>
+                    </div>
+                </div>
+
+                <!-- Countdown Overlay -->
+                <div class="countdown-overlay" id="countdownOverlay">
+                    <div class="countdown-number" id="countdownNumber">3</div>
+                </div>
+
+                <!-- Recording Indicator -->
+                <div class="recording-indicator" id="recordingIndicator">
+                    <span class="rec-dot"></span>
+                    <span class="rec-text">REC</span>
+                    <span class="rec-time" id="recordingTime">00:00</span>
+                </div>
+
+                <!-- Current Filter Display -->
+                <div class="current-filter" id="currentFilter">
+                    No Filter
+                </div>
+
+                <!-- Gesture Feedback -->
+                <div class="gesture-feedback" id="gestureFeedback"></div>
+            </div>
+
+            <!-- Gesture Guide Panel -->
+            <aside class="gesture-guide" id="gestureGuide">
+                <h3>Gesture Controls</h3>
+                <div class="gesture-list">
+                    <div class="gesture-item">
+                        <span class="gesture-icon">✋</span>
+                        <span class="gesture-desc">Open palm (2s) - Take photo</span>
+                    </div>
+                    <div class="gesture-item">
+                        <span class="gesture-icon">✌️</span>
+                        <span class="gesture-desc">Peace sign - Switch camera</span>
+                    </div>
+                    <div class="gesture-item">
+                        <span class="gesture-icon">👍</span>
+                        <span class="gesture-desc">Thumbs up - Next filter</span>
+                    </div>
+                    <div class="gesture-item">
+                        <span class="gesture-icon">👎</span>
+                        <span class="gesture-desc">Thumbs down - Remove filter</span>
+                    </div>
+                    <div class="gesture-item">
+                        <span class="gesture-icon">👆</span>
+                        <span class="gesture-desc">Point up - Zoom in</span>
+                    </div>
+                    <div class="gesture-item">
+                        <span class="gesture-icon">👇</span>
+                        <span class="gesture-desc">Point down - Zoom out</span>
+                    </div>
+                    <div class="gesture-item">
+                        <span class="gesture-icon">✊</span>
+                        <span class="gesture-desc">Fist - Start/stop video</span>
+                    </div>
+                    <div class="gesture-item">
+                        <span class="gesture-icon">🖐️</span>
+                        <span class="gesture-desc">Swipe left - Discard photo</span>
+                    </div>
+                    <div class="gesture-item">
+                        <span class="gesture-icon">🖐️</span>
+                        <span class="gesture-desc">Swipe right - Save photo</span>
+                    </div>
+                    <div class="gesture-item">
+                        <span class="gesture-icon">🤟</span>
+                        <span class="gesture-desc">Rock sign - Toggle timer</span>
+                    </div>
+                </div>
+                <button class="toggle-guide-btn" id="toggleGuideBtn">Hide Guide</button>
+            </aside>
+        </main>
+
+        <!-- Photo Gallery Section -->
+        <section class="gallery-section" id="gallerySection">
+            <div class="gallery-header">
+                <h2>Photo Gallery</h2>
+                <div class="gallery-actions">
+                    <button class="btn-secondary" id="clearGalleryBtn">Clear All</button>
+                    <button class="btn-secondary" id="exportGifBtn">Export as GIF</button>
+                    <button class="btn-secondary" id="togglePhotoBoothBtn">Photo Booth Mode</button>
+                </div>
+            </div>
+            <div class="gallery-grid" id="galleryGrid">
+                <!-- Photos will be added here dynamically -->
+            </div>
+        </section>
+
+        <!-- Settings Panel -->
+        <aside class="settings-panel" id="settingsPanel">
+            <button class="settings-toggle" id="settingsToggle">⚙️</button>
+            <div class="settings-content">
+                <h3>Settings</h3>
+
+                <div class="setting-group">
+                    <label for="gestureSensitivity">Gesture Sensitivity</label>
+                    <input type="range" id="gestureSensitivity" min="1" max="10" value="5">
+                </div>
+
+                <div class="setting-group">
+                    <label>
+                        <input type="checkbox" id="voiceFeedback">
+                        Voice Feedback
+                    </label>
+                </div>
+
+                <div class="setting-group">
+                    <label>
+                        <input type="checkbox" id="highContrastMode">
+                        High Contrast Mode
+                    </label>
+                </div>
+
+                <div class="setting-group">
+                    <label>
+                        <input type="checkbox" id="showHandTracking" checked>
+                        Show Hand Tracking
+                    </label>
+                </div>
+
+                <div class="setting-group">
+                    <label>
+                        <input type="checkbox" id="showCompositionGuides">
+                        Composition Guides
+                    </label>
+                </div>
+
+                <div class="setting-group">
+                    <label for="timerDuration">Timer Duration</label>
+                    <select id="timerDuration">
+                        <option value="0">Off</option>
+                        <option value="3" selected>3 seconds</option>
+                        <option value="5">5 seconds</option>
+                        <option value="10">10 seconds</option>
+                    </select>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <!-- Loading Screen -->
+    <div class="loading-screen" id="loadingScreen">
+        <div class="loading-content">
+            <div class="spinner"></div>
+            <p>Initializing camera and gesture recognition...</p>
+        </div>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Main App Script -->
+    <script src="app.js"></script>
+</body>
+</html>
