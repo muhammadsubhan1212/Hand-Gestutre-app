@@ -563,11 +563,33 @@ class AirFrameApp {
                 canvasStream.addTrack(audioTrack);
             }
 
+            // Detect supported codec
+            const mimeTypes = [
+                'video/webm;codecs=vp9',
+                'video/webm;codecs=vp8',
+                'video/webm;codecs=h264',
+                'video/webm',
+                'video/mp4'
+            ];
+
+            let selectedMimeType = '';
+            for (const mimeType of mimeTypes) {
+                if (MediaRecorder.isTypeSupported(mimeType)) {
+                    selectedMimeType = mimeType;
+                    break;
+                }
+            }
+
+            if (!selectedMimeType) {
+                throw new Error('No supported video format found');
+            }
+
             this.mediaRecorder = new MediaRecorder(canvasStream, {
-                mimeType: 'video/webm;codecs=vp9'
+                mimeType: selectedMimeType
             });
 
             this.recordedChunks = [];
+            this.currentVideoMimeType = selectedMimeType;
 
             this.mediaRecorder.ondataavailable = (event) => {
                 if (event.data.size > 0) {
@@ -576,13 +598,14 @@ class AirFrameApp {
             };
 
             this.mediaRecorder.onstop = () => {
-                const blob = new Blob(this.recordedChunks, { type: 'video/webm' });
+                const blob = new Blob(this.recordedChunks, { type: this.currentVideoMimeType || 'video/webm' });
                 const url = URL.createObjectURL(blob);
 
                 this.photos.push({
                     data: url,
                     timestamp: Date.now(),
-                    isVideo: true
+                    isVideo: true,
+                    mimeType: this.currentVideoMimeType
                 });
 
                 this.updateGallery();
@@ -655,23 +678,22 @@ class AirFrameApp {
         }
     }
 
+    getFileExtension(photo) {
+        if (photo.isVideo && photo.mimeType) {
+            if (photo.mimeType.includes('mp4')) return 'mp4';
+            return 'webm'; // Default for webm variants
+        }
+        return 'jpg';
+    }
+
     saveLastPhoto() {
         if (this.photos.length > 0) {
             const lastPhoto = this.photos[this.photos.length - 1];
-
-            if (lastPhoto.isVideo) {
-                // Download video
-                const link = document.createElement('a');
-                link.href = lastPhoto.data;
-                link.download = `airframe-video-${lastPhoto.timestamp}.webm`;
-                link.click();
-            } else {
-                // Download image
-                const link = document.createElement('a');
-                link.href = lastPhoto.data;
-                link.download = `airframe-photo-${lastPhoto.timestamp}.jpg`;
-                link.click();
-            }
+            const extension = this.getFileExtension(lastPhoto);
+            const link = document.createElement('a');
+            link.href = lastPhoto.data;
+            link.download = `airframe-${lastPhoto.isVideo ? 'video' : 'photo'}-${lastPhoto.timestamp}.${extension}`;
+            link.click();
 
             this.showGestureFeedback('Photo saved');
             this.speak('Photo saved');
@@ -721,9 +743,10 @@ class AirFrameApp {
 
     downloadPhoto(index) {
         const photo = this.photos[index];
+        const extension = this.getFileExtension(photo);
         const link = document.createElement('a');
         link.href = photo.data;
-        link.download = `airframe-${photo.isVideo ? 'video' : 'photo'}-${photo.timestamp}.${photo.isVideo ? 'webm' : 'jpg'}`;
+        link.download = `airframe-${photo.isVideo ? 'video' : 'photo'}-${photo.timestamp}.${extension}`;
         link.click();
 
         this.showToast('Download started', 'success');
